@@ -28,14 +28,4 @@ pip3 install -r requirements-gpu.txt
 python roi_extractor.py --video ./vid/barca6.mp4 --model yolov3
 ```
 
-7. You can find all exported data from the video regarding each player and a cumulative result of all players in the *exported data* folder.
-
-      a. playerA[player number].csv (where player number starts from 1 to 10).
-
-      b. playerB[player number].csv (where player number starts from 1 to 10).
-
-      c. playerA Goalkeeper.csv
-
-      d. playerB GoalKeeper.csv
-
-      e. soccer metrics.csv (this is the overall performance of players, player's comparison).
+7. You can find all exported data from the video regarding each player and a cumulative result of all players in the ROI folder.
