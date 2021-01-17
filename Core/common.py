@@ -1,5 +1,8 @@
-import tensorflow as tf
+#! /usr/bin/env python
+# coding=utf-8
 
+import tensorflow as tf
+# import tensorflow_addons as tfa
 class BatchNormalization(tf.keras.layers.BatchNormalization):
     """
     "Frozen state" and "inference mode" are two separate concepts.
@@ -14,7 +17,6 @@ class BatchNormalization(tf.keras.layers.BatchNormalization):
         return super().call(x, training)
 
 def convolutional(input_layer, filters_shape, downsample=False, activate=True, bn=True, activate_type='leaky'):
-    
     if downsample:
         input_layer = tf.keras.layers.ZeroPadding2D(((1, 0), (1, 0)))(input_layer)
         padding = 'valid'
@@ -34,27 +36,13 @@ def convolutional(input_layer, filters_shape, downsample=False, activate=True, b
             conv = tf.nn.leaky_relu(conv, alpha=0.1)
         elif activate_type == "mish":
             conv = mish(conv)
-
     return conv
 
-def softplus(x, threshold = 20.):
-    
-    def f1():
-        return x
-    def f2():
-        return tf.exp(x)
-    def f3():
-        return tf.math.log(1 + tf.exp(x))
-
-    return tf.case([(tf.greater(x, tf.constant(threshold)), lambda:f1()), (tf.less(x, tf.constant(-threshold)), lambda:f2())], default=lambda:f3())
-
 def mish(x):
-    
-    return tf.keras.layers.Lambda(lambda x: x*tf.tanh(tf.math.log(1+tf.exp(x))))(x)
-
+    return x * tf.math.tanh(tf.math.softplus(x))
+    # return tf.keras.layers.Lambda(lambda x: x*tf.tanh(tf.math.log(1+tf.exp(x))))(x)
 
 def residual_block(input_layer, input_channel, filter_num1, filter_num2, activate_type='leaky'):
-    
     short_cut = input_layer
     conv = convolutional(input_layer, filters_shape=(1, 1, input_channel, filter_num1), activate_type=activate_type)
     conv = convolutional(conv       , filters_shape=(3, 3, filter_num1,   filter_num2), activate_type=activate_type)
@@ -62,7 +50,18 @@ def residual_block(input_layer, input_channel, filter_num1, filter_num2, activat
     residual_output = short_cut + conv
     return residual_output
 
+# def block_tiny(input_layer, input_channel, filter_num1, activate_type='leaky'):
+#     conv = convolutional(input_layer, filters_shape=(3, 3, input_channel, filter_num1), activate_type=activate_type)
+#     short_cut = input_layer
+#     conv = convolutional(conv, filters_shape=(3, 3, input_channel, filter_num1), activate_type=activate_type)
+#
+#     input_data = tf.concat([conv, short_cut], axis=-1)
+#     return residual_output
+
+def route_group(input_layer, groups, group_id):
+    convs = tf.split(input_layer, num_or_size_splits=groups, axis=-1)
+    return convs[group_id]
+
 def upsample(input_layer):
-    
-    return tf.image.resize(input_layer, (input_layer.shape[1] * 2, input_layer.shape[2] * 2), method='nearest')
+    return tf.image.resize(input_layer, (input_layer.shape[1] * 2, input_layer.shape[2] * 2), method='bilinear')
 
