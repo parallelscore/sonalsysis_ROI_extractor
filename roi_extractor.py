@@ -5,6 +5,7 @@ import json
 import datetime
 from random import random
 from time import sleep 
+from tqdm import tqdm
     
 # import horovod.tensorflow as hvd
 # hvd.init()
@@ -60,8 +61,6 @@ flags.DEFINE_boolean('tiny', False, 'yolo or yolo-tiny')
 flags.DEFINE_string('model', 'yolov3', 'yolov3 or yolov4')
 flags.DEFINE_string('video', './data/video/test.mp4',
                     'path to input video or set to 0 for webcam')
-flags.DEFINE_string('json_export', TIMESTAMP_DIR+'pickled_json.json',
-                    'path to json data')
 flags.DEFINE_string('output', None, 'path to output video')
 flags.DEFINE_string('output_format', 'XVID',
                     'codec used in VideoWriter when saving video to file')
@@ -82,6 +81,19 @@ class NumpyEncoder(json.JSONEncoder):
         elif isinstance(obj, np.ndarray):
             return obj.tolist()
         return json.JSONEncoder.default(self, obj)
+
+
+#check if the ROI folder exist in the root folder
+if os.path.exists('./ROI'):
+    print('Clearing out files in ROI......')
+    cleardata = [os.remove(os.path.join('./ROI', f)) for f in os.listdir('./ROI')]
+    print('Cleared out files!!!')
+
+else:
+    print("Creating exporting folder: ROI....")
+    os.mkdir('./ROI')
+    print("Created ROI Folder for image exportation......")
+
 
 
 minimapArray = []
@@ -132,11 +144,23 @@ def main(_argv):
     except:
         vid = cv2.VideoCapture(video_path)
 
+
+    # Try to read video if valid
+    return_value, frame = vid.read()
+    if return_value:
+        pass
+    else:
+        print('Invalid video Directory!!!')
+        
+
     filename = video_path.split('.')[-2]
-    VideoOut = None
+    # VideoOut = None
     MinimapOut = None
 
-    
+    # Get total number of frames in a video
+    TotalFrames = int(vid.get(cv2.CAP_PROP_FRAME_COUNT))
+
+
     # get video ready to save locally if flag is set
     if FLAGS.output:
         # by default VideoCapture returns float instead of int
@@ -148,10 +172,8 @@ def main(_argv):
 
         # set frame per seconds
         vid.set(cv2.CAP_PROP_FPS, 1000)
-        env.FPS = 1000
         fps = int(vid.get(cv2.CAP_PROP_FPS))
         codec = cv2.VideoWriter_fourcc(*FLAGS.output_format)
-        VideoOut = cv2.VideoWriter(TIMESTAMP_DIR +'objectDetector.avi', codec, fps, (width, height))
         
         
 
@@ -160,15 +182,15 @@ def main(_argv):
     count = 10
     ObjectDetector = DetectObject()
 
-    while True:
+    for _, i in enumerate(tqdm(range(TotalFrames))):
         return_value, frame = vid.read()
         if return_value:
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             image = Image.fromarray(frame)
         else:
-            # print('Video has ended or failed, try a different video format!')
+            print('Video has ended or failed, try a different video format!')
             break
-        frame_num += 1
+        
 
         # pass in the object detector
         ObjectDetector.interpreter = interpreter
@@ -185,8 +207,18 @@ def main(_argv):
                 maskedImage = frame[ymin:ymin+h, xmin:xmin+w]
 
         
-                roi_name= "./ROI/ROI_frame_%s.jpg" %(str(round(time.time() * 1000)))
+                roi_name= "./ROI/ROI_frame_%s.jpg" %(str(frame_num))
                 cv2.imwrite(roi_name, maskedImage) # save transformed image to path
+                
+
+        # cv2.imshow('frame',result)
+
+        frame_num += 1
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cv2.destroyAllWindows()
 
     
 
